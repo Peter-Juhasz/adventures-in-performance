@@ -123,7 +123,7 @@ public static IEnumerable<T> OrderBy<T, TResult>(
 
 
 ## Optimize enumeration for lists
-For every enumeration on an `IEnumerable<T>`, we need to create an `IEnumerator<T>` to enumerate the elements. Since we work with interfaces here, this object is allocated on the heap. But
+For every enumeration on an `IEnumerable<T>`, we need to create an `IEnumerator<T>` to enumerate the elements. Since we work with interfaces here, this object is allocated on the heap. But in most cases, we deal with lists, which enumeration mechanism is known, so we can move that implementation upwards to spare a head allocation:
 
 ```cs
 public static bool Any<T>(this IReadOnlyList<T> source, Func<T, bool> predicate)
@@ -206,7 +206,23 @@ public static IEnumerable<T> Distinct<T>(this IReadOnlyList<T> source, IEquality
 ```
 
 
-## Optimize `Take` and `Skip`
+## Optimize `First` and `Last` for lists
+If the underlying collection is a list, we can use indexes instead of enumeration:
+
+```cs
+public static T First<T>(this IReadOnlyList<T> source) => source[0];
+public static T Last<T>(this IReadOnlyList<T> source) => source[^1];
+```
+
+Sample applies for the other versions of these methods:
+
+```cs
+public static T? FirstOrDefault<T>(this IReadOnlyList<T> source) => source.Any() ? source[0] : default;
+public static T? LastOrDefault<T>(this IReadOnlyList<T> source) => source.Any() ? source[^1] : default;
+```
+
+
+## Optimize `Take` and `Skip` for inbound and outbound ranges
 If the source collection is in the range we can pass it through:
 
 ```cs
@@ -245,5 +261,35 @@ public static IEnumerable<T> Skip<T>(this IReadOnlyCollection<T> source, int cou
 }
 ```
 
-## TODO: In-place changes
 
+## In-place transformations
+If the underlying collection a transient one (e.g. a result of a previous LINQ operation), we can do some transformations inplace, instead of creating a new collection or enumeration:
+
+```cs
+public static IReadOnlyList<T> OrderByInplace<T>(this IReadOnlyList<T> source, IComparer<T> comparer)
+{
+	if (source is List<T> list)
+	{
+		list.Sort(comparer);
+		return list;
+	}
+
+	// ...
+}
+```
+
+```cs
+public static IReadOnlyList<T> WhereInplace<T>(this IReadOnlyList<T> source, Func<T, bool> predicate)
+{
+	for (int i = 0; i < source.Count; i++)
+	{
+		var item = source[i];
+		if (!predicate(item))
+		{
+			source.RemoveAt(i);
+		}
+	}
+
+	return source;
+}
+```
