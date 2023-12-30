@@ -160,7 +160,8 @@ public static bool Any<T>(this IReadOnlyList<T> source, Func<T, bool> predicate)
 ```
 
 
-## Optimize for small element count
+## Optimize for happy case with small element count
+With `Where` on a list, if we expect that all items match the predicate, with small element numbers we can check whether all elements match without allocating an enumerator and a new storage for the results, and return the original collection:
 
 ```cs
 public static IEnumerable<T> Where<T>(this IReadOnlyList<T> source, Func<T, bool> predicate)
