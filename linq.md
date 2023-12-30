@@ -293,3 +293,22 @@ public static IReadOnlyList<T> WhereInplace<T>(this IReadOnlyList<T> source, Fun
 	return source;
 }
 ```
+
+
+## Pre-allocate buffer size
+In many cases, the results of the operators are buffered into a storage. Those cases may be done in a single step, for example with `Select`, where we can spare the resizing of the buffers during the enumeration:
+
+```cs
+public static IReadOnlyList<TResult> SelectToList<T, TResult>(this IReadOnlyList<T> source, Func<T, TResult> selector)
+{
+	var results = new TResult[source.Count];
+
+	for (int i = 0; i < source.Count; i++)
+	{
+		results[i] = selector(source[i]);
+	}
+
+	return results;
+}
+```
+
